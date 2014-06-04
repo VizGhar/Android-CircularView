@@ -9,12 +9,14 @@
         android:id="@+id/circle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        app:outer_width="10dp"
+        app:outer_width="30dp"
         app:inner_color="@color/orange"
-        android:layout_margin="30dp">
+        android:layout_margin="0dp"
+        android:onClick="circleClick">
 
 
             <ImageView
+                android:onClick="centerClick"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:src="@drawable/adele"

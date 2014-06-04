@@ -3,6 +3,7 @@ package sk.kandrac.sample;
 import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
 import android.view.View;
+import android.widget.Toast;
 
 import sk.kandrac.circularview.CircularView;
 import sk.kandrac.circularview.ItemDescriptor;
@@ -32,5 +33,12 @@ public class MainActivity extends ActionBarActivity {
         ItemDescriptor desc = circularView.getDescriptor(positive);
         desc.setScore(desc.getScore() + 1);
         circularView.invalidate();
+    }
+
+    public void circleClick(View view) {
+    }
+
+    public void centerClick(View view) {
+        Toast.makeText(this, "center clicked",Toast.LENGTH_SHORT).show();
     }
 }
