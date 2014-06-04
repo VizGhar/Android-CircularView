@@ -8,13 +8,14 @@ import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RectF;
 import android.graphics.Region;
+import android.os.Parcel;
+import android.os.Parcelable;
 import android.support.v4.view.ViewCompat;
 import android.util.AttributeSet;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.OverScroller;
 import android.widget.Scroller;
 
 import java.util.Collection;
@@ -24,7 +25,7 @@ import java.util.Map;
 /**
  * This view is intended to display Circular view composed of 2 circles. Inner circle to show
  * standard content cropped into circle, and outer to display PieChart-like portions of added
- * objects (see addItem() methods and/or sample application).
+ * items. (see addItem() methods and/or sample application).
  *
  * TODO: OnDataChangeListener to animate changes
  * TODO: Improve touch event handling
@@ -40,56 +41,24 @@ public class CircularView extends ViewGroup {
     // width of outer circle
     private int outerWidth;
 
-    // bounds of whole view
-    private RectF mBounds;
+    // bounds of whole view (substracted by half of width of outer circle)
+    private RectF innerBounds;
 
-    //bounds of child view
-    private RectF mBoundsI;
+    // rectangular bounds of child view
+    private RectF outerBounds;
 
-    private Paint defalutPaint;
+    // paint used only for layout preview
+    private Paint defaultPaint;
 
+    // color used mainly for layout preview or when no item is presented
+    private int defaultColor;
+
+    // clip path where child should be placed
     private Path clipPath;
 
-    private int color;
-
-    private View child;
-
-    /**
-     * Get Count of items for which score will be displayed on outer cycle
-     * @return count of items
-     */
-    public int getItemCount() {
-        return items.size();
-    }
-
-    /**
-     *
-     * @param items to be added to outer cycle
-     */
-    public void addItems(Collection<Object> items) {
-        for (Object item : items)
-            addItem(item);
-    }
-
-    public void addItem(Object item) {
-        addItem(item, 0);
-    }
-
-    public void addItem(Object item, float score) {
-        addItem(item, score, 0);
-    }
-
-    public void addItem(Object item, float score, int color) {
-        Paint paint = new Paint();
-        paint.setStyle(Paint.Style.STROKE);
-        paint.setColor(color);
-        paint.setStrokeWidth(outerWidth);
-        paint.setAntiAlias(true);
-
-        ItemDescriptor itemDescriptor = new ItemDescriptor(score, paint);
-        items.put(item, itemDescriptor);
-    }
-
+    //////////////////////////////////////////////
+    // INIT PART (constructors and initalizers) //
+    //////////////////////////////////////////////
     public CircularView(Context context) {
         this(context, null, 0);
     }
@@ -102,52 +71,129 @@ public class CircularView extends ViewGroup {
         super(context, attrs, defStyleAttr);
         parseAttributes(context.obtainStyledAttributes(attrs, R.styleable.CircularView));
         init();
+    }
+
+
+    /**
+     * Parse the attributes passed to the view from the XML
+     *
+     * @param attrs the attributes to parse
+     */
+    private void parseAttributes(TypedArray attrs) {
+        outerWidth = (int) attrs.getDimension(R.styleable.CircularView_outer_width, 50);
+        defaultColor = attrs.getColor(R.styleable.CircularView_inner_color, Color.BLACK);
+        attrs.recycle();
+    }
+
+    private void init() {
+        innerBounds = new RectF();
+        outerBounds = new RectF();
+        clipPath = new Path();
+        defaultPaint = new Paint();
+        defaultPaint.setColor(defaultColor);
+        defaultPaint.setStrokeWidth(outerWidth);
+        defaultPaint.setStyle(Paint.Style.STROKE);
+
+        // TODO: when background is not set, view is not drawing Arc. Don't know why
+        setBackgroundColor(Color.TRANSPARENT);
+        setLayerType(View.LAYER_TYPE_SOFTWARE, null);
+
         gestureListener = new MyGestureListener();
     }
 
-    @Override
-    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+    //////////////////////////////////////////////
+    // OUTER CIRCLE ITEM PROCESSING PART        //
+    //////////////////////////////////////////////
 
-        if (this.child == null) {
-            this.child = getChildAt(0);
+    /**
+     * @return count of items
+     */
+    public int getItemCount() {
+        return items.size();
+    }
+
+    /**
+     * Adds all items from collection into layout via {@link #addView(android.view.View)} method,
+     * see the method for detailed information.
+     * @param items to be added to outer cycle
+     */
+    public void addItems(Collection<Object> items) {
+        for (Object item : items)
+            addItem(item);
+    }
+
+
+    /**
+     * Same as {@link #addItem(Object, float, int)} <br/>
+     * with 0 score and {@link android.graphics.Color#BLACK} color
+     * @param item to be added
+     */
+    public void addItem(Object item) {
+        addItem(item, 0, Color.BLACK);
+    }
+
+    /**
+     * Same as {@link #addItem(Object, float, int)} <br/>
+     * with 0 score
+     * @param item to be added
+     */
+    public void addItem(Object item, int color) {
+        addItem(item, 0, color);
+    }
+
+    /**
+     * Same as {@link #addItem(Object, float, int)} <br/>
+     * with {@link android.graphics.Color#BLACK} color
+     * @param item to be added
+     */
+    public void addItem(Object item, float score) {
+        addItem(item, score, 0);
+    }
+
+    /**
+     * Adds new item with information to outer view. Item should be any object and mustn't be
+     * same with other items. In resulted output there will be Arc displayed for each item based
+     * on its current score. Therefore is needed to input item score and item color so the user
+     * can distinguish differences between items.
+     *
+     * @param item to be added
+     * @param score initial score of item
+     * @param color color representing item
+     */
+    public void addItem(Object item, float score, int color) {
+        Paint paint = new Paint();
+        paint.setStyle(Paint.Style.STROKE);
+        paint.setColor(color);
+        paint.setStrokeWidth(outerWidth);
+        paint.setAntiAlias(true);
+
+        ItemDescriptor itemDescriptor = new ItemDescriptor(score, paint);
+        items.put(item, itemDescriptor);
+    }
+
+    /**
+     * @return Sum of scores of all items
+     */
+    private int getSum() {
+        int sum = 0;
+        for (Map.Entry<Object, ItemDescriptor> item : items.entrySet()) {
+            sum += item.getValue().getScore();
         }
-
-        int size = Math.min(MeasureSpec.getSize(widthMeasureSpec), MeasureSpec.getSize(heightMeasureSpec));
-
-        mBoundsI.left = outerWidth/2;
-        mBoundsI.top = outerWidth/2;
-        mBoundsI.right = size-outerWidth/2;
-        mBoundsI.bottom = size-outerWidth/2;
-
-        mBounds.left = outerWidth;
-        //noinspection SuspiciousNameCombination
-        mBounds.top = outerWidth;
-        mBounds.right = size - outerWidth;
-        mBounds.bottom = size - outerWidth;
-
-        float x = (mBounds.right + mBounds.left)/2;
-        float y = (mBounds.bottom + mBounds.top)/2;
-
-        if (!clipPath.isEmpty()) clipPath.reset();
-
-        clipPath.addCircle(x, y, x - outerWidth, Path.Direction.CW);
-
-        setMeasuredDimension(size, size);
-        measureChild(size - outerWidth, size - outerWidth);
+        return sum;
     }
 
-    protected void measureChild(int parentWidthMeasureSpec, int parentHeightMeasureSpec) {
-        if (child != null)
-            super.measureChild(this.child, parentWidthMeasureSpec, parentHeightMeasureSpec);
+    /**
+     * TODO: reimplement so user don't have to call invalidation after changes
+     * @param item of which descriptor should be obtained
+     * @return the descriptor of the item, or null if item not presented.
+     */
+    public ItemDescriptor getDescriptor(Object item) {
+        return items.get(item);
     }
 
-    @Override
-    protected void onLayout(boolean b, int left, int top, int right, int bottom) {
-        if (child != null) {
-            child.layout(outerWidth, outerWidth, right - left - outerWidth, bottom - top - outerWidth);
-        }
-    }
-
+    //////////////////////////////////////////////
+    // SINGLE CHILD RESTRICTION                 //
+    //////////////////////////////////////////////
     @Override
     public void addView(@SuppressWarnings("NullableProblems") View child) {
         if (getChildCount() > 0)
@@ -183,38 +229,72 @@ public class CircularView extends ViewGroup {
         super.addView(child, index, params);
     }
 
-    /**
-     * Parse the attributes passed to the view from the XML
-     *
-     * @param a the attributes to parse
-     */
-    private void parseAttributes(TypedArray a) {
-        outerWidth = (int) a.getDimension(R.styleable.CircularView_outer_width, 50);
-        color = a.getColor(R.styleable.CircularView_inner_color, Color.BLACK);
-        a.recycle();
-    }
+    //////////////////////////////////////////////
+    // LAYING DOWN THE VIEW                     //
+    //////////////////////////////////////////////
+    @Override
+    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        // whole view width and height
+        int size = Math.min(MeasureSpec.getSize(widthMeasureSpec), MeasureSpec.getSize(heightMeasureSpec));
 
-    private void init() {
-        mBounds = new RectF();
-        mBoundsI = new RectF();
-        defalutPaint = new Paint();
-        defalutPaint.setColor(color);
-        defalutPaint.setStrokeWidth(outerWidth);
-        defalutPaint.setStyle(Paint.Style.STROKE);
+        // compute outer cycle bounds (need to cut width of outer cycle because of drawArc method)
+        outerBounds.left = outerWidth/2;
+        outerBounds.top = outerWidth/2;
+        outerBounds.right = size-outerWidth/2;
+        outerBounds.bottom = size-outerWidth/2;
 
-        clipPath = new Path();
+        // compute inner cycle bounds
+        innerBounds.left = outerWidth;
+        innerBounds.top = outerWidth;
+        innerBounds.right = size - outerWidth;
+        innerBounds.bottom = size - outerWidth;
 
-        setBackgroundColor(Color.TRANSPARENT);
-        setLayerType(View.LAYER_TYPE_SOFTWARE, null);
+        // compute clip path for inner view
+        float center = (innerBounds.right + innerBounds.left)/2;
+        if (!clipPath.isEmpty()) clipPath.reset();
+        clipPath.addCircle(center, center, center - outerWidth, Path.Direction.CW);
+
+        // measure down the view(s)
+        for (int i = 0; i < getChildCount(); i++) {
+            View child = getChildAt(i);
+            if (child!=null)
+                measureChild(child, size - outerWidth, size - outerWidth);
+        }
+
+        // set dimension for whole view
+        setMeasuredDimension(size, size);
     }
 
     @Override
-    protected boolean drawChild(@SuppressWarnings("NullableProblems") Canvas canvas, @SuppressWarnings("NullableProblems") View child, long drawingTime) {
-        canvas.clipPath(clipPath, Region.Op.REPLACE);
-        super.drawChild(canvas, child, drawingTime);
-        return true;
+    protected void onLayout(boolean b, int left, int top, int right, int bottom) {
+        // lay down view(s) into inner bounds
+        for (int i = 0; i < getChildCount(); i++) {
+            View child = getChildAt(i);
+            if (child!=null)
+                child.layout((int) innerBounds.left, (int) innerBounds.top, (int) innerBounds.right, (int) innerBounds.bottom);
+        }
     }
 
+    /**
+     * This method is responsible for drawing child(s) into clip path. For inspiration special thanks
+     * to <a href="http://stackoverflow.com/a/24040115/2316926">budius</a>
+     *
+     * @param canvas The canvas on which to draw the child
+     * @param child Who to draw
+     * @param drawingTime The time at which draw is occurring
+     * @return True if an invalidate() was issued
+     */
+    @Override
+    protected boolean drawChild(@SuppressWarnings("NullableProblems") Canvas canvas, @SuppressWarnings("NullableProblems") View child, long drawingTime) {
+        canvas.clipPath(clipPath, Region.Op.REPLACE);
+        return super.drawChild(canvas, child, drawingTime);
+    }
+
+    /**
+     * Responsible for drawing outer cycle (to see drawing of inner part see {@link #drawChild(android.graphics.Canvas, android.view.View, long)}).
+     * TODO: complete javadoc
+     * @param canvas The canvas on which to draw the view
+     */
     @Override
     public void onDraw(Canvas canvas) {
         float beg = 0;
@@ -222,35 +302,22 @@ public class CircularView extends ViewGroup {
         if (items != null && items.size() > 0 && getSum() != 0)
             for (Map.Entry<Object, ItemDescriptor> item : items.entrySet()) {
                 end = (item.getValue().getScore() / getSum()) * 360;
-                canvas.drawArc(mBoundsI, beg + gestureListener.getScroll(), end, false, item.getValue().getPaint());
+                canvas.drawArc(outerBounds, beg + gestureListener.getScroll(), end, false, item.getValue().getPaint());
                 beg += end;
             }
         else {
-            canvas.drawArc(mBoundsI, beg, 360, false, defalutPaint);
+            canvas.drawArc(outerBounds, beg, 360, false, defaultPaint);
         }
     }
 
-    private int getSum() {
-        int sum = 0;
-        for (Map.Entry<Object, ItemDescriptor> item : items.entrySet()) {
-            sum += item.getValue().getScore();
-        }
-        return sum;
-    }
-
-    public ItemDescriptor getDescriptor(Object obj) {
-        return items.get(obj);
-    }
-
-
-    // TODO: infinite (periodic) scroll
+    // TODO: infinite (periodic) scroll and 4 quadrants
     class MyGestureListener extends GestureDetector.SimpleOnGestureListener implements OnTouchListener {
 
         private Scroller mScroller;
         private GestureDetector gesture;
 
-        private int minScroll = 0;
-        private int maxScroll = 300;
+        private int minScroll = Integer.MIN_VALUE;
+        private int maxScroll = Integer.MAX_VALUE;
 
         public MyGestureListener() {
             mScroller = new Scroller(getContext());
@@ -287,9 +354,9 @@ public class CircularView extends ViewGroup {
         public int getScroll() {
             if (mScroller.computeScrollOffset()) {
                 requestLayout();
-                return mScroller.getCurrX();
+                return mScroller.getCurrX() % 360;
             }
-            return mScroller.getFinalX();
+            return mScroller.getFinalX() % 360;
         }
 
         @Override
@@ -306,12 +373,71 @@ public class CircularView extends ViewGroup {
             }
             return gesture.onTouchEvent(motionEvent);
         }
+
+        public void setScroll(int scroll) {
+            this.mScroller.setFinalX(scroll);
+        }
     }
 
     @Override
     public void computeScroll() {
-        // TODO: remember scroll on display rotation
         gestureListener.getScroll();
+    }
+
+
+    //////////////////////////////////////////////
+    // STATE SAVING AND RESTORATION             //
+    //////////////////////////////////////////////
+    static class SavedState extends BaseSavedState {
+        int scroll;
+
+        SavedState(Parcelable superState) {
+            super(superState);
+        }
+
+        private SavedState(Parcel in) {
+            super(in);
+            this.scroll = in.readInt();
+        }
+
+        @Override
+        public void writeToParcel(Parcel out, int flags) {
+            super.writeToParcel(out, flags);
+            out.writeInt(this.scroll);
+        }
+
+        //required field that makes Parcelables from a Parcel
+        public static final Parcelable.Creator<SavedState> CREATOR =
+                new Parcelable.Creator<SavedState>() {
+                    public SavedState createFromParcel(Parcel in) {
+                        return new SavedState(in);
+                    }
+                    public SavedState[] newArray(int size) {
+                        return new SavedState[size];
+                    }
+                };
+    }
+
+    @Override
+    public Parcelable onSaveInstanceState() {
+        Parcelable superState = super.onSaveInstanceState();
+        SavedState ss = new SavedState(superState);
+
+        ss.scroll = this.gestureListener.getScroll();
+        return ss;
+    }
+
+    @Override
+    public void onRestoreInstanceState(Parcelable state) {
+        if(!(state instanceof SavedState)) {
+            super.onRestoreInstanceState(state);
+            return;
+        }
+
+        SavedState ss = (SavedState)state;
+        super.onRestoreInstanceState(ss.getSuperState());
+
+        this.gestureListener.setScroll(ss.scroll);
     }
 
     //////////////////////////////
