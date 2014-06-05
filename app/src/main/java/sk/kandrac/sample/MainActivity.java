@@ -30,9 +30,7 @@ public class MainActivity extends ActionBarActivity {
     }
 
     public void addpos(View view) {
-        ItemDescriptor desc = circularView.getDescriptor(positive);
-        desc.setScore(desc.getScore() + 1);
-        circularView.invalidate();
+        circularView.addItemScore(positive, 1f);
     }
 
     public void circleClick(View view) {

@@ -183,12 +183,37 @@ public class CircularView extends ViewGroup {
     }
 
     /**
-     * TODO: reimplement so user don't have to call invalidation after changes
+     * Deprecated: use get/set ItemScore/ItemColor instead
      * @param item of which descriptor should be obtained
      * @return the descriptor of the item, or null if item not presented.
      */
+    @Deprecated
     public ItemDescriptor getDescriptor(Object item) {
         return items.get(item);
+    }
+
+    public float getItemScore(Object item){
+        return items.get(item).getScore();
+    }
+
+    public void setItemScore(Object item, float score){
+        items.get(item).setScore(score);
+        postInvalidate();
+    }
+
+    public void addItemScore(Object item, float score){
+        ItemDescriptor descriptor = items.get(item);
+        descriptor.setScore(descriptor.getScore() + score);
+        postInvalidate();
+    }
+
+    public int getItemColor(Object item){
+        return items.get(item).getPaint().getColor();
+    }
+
+    public void setItemColor(Object item, int color){
+        items.get(item).getPaint().setColor(color);
+        postInvalidate();
     }
 
     //////////////////////////////////////////////
@@ -249,10 +274,10 @@ public class CircularView extends ViewGroup {
         innerBounds.right = size - outerWidth;
         innerBounds.bottom = size - outerWidth;
 
-        // compute clip path for inner view
+        // compute clip path for inner view (added 2 pixels so the child seems antialliased)
         float center = (innerBounds.right + innerBounds.left)/2;
         if (!clipPath.isEmpty()) clipPath.reset();
-        clipPath.addCircle(center, center, center - outerWidth, Path.Direction.CW);
+        clipPath.addCircle(center, center, center - outerWidth+2, Path.Direction.CW);
 
         // measure down the view(s)
         for (int i = 0; i < getChildCount(); i++) {
@@ -279,6 +304,9 @@ public class CircularView extends ViewGroup {
      * This method is responsible for drawing child(s) into clip path. For inspiration special thanks
      * to <a href="http://stackoverflow.com/a/24040115/2316926">budius</a>
      *
+     * After child is drawn outer cycle will have to be drawn. This is not implemented in onDraw method,
+     * because the child is not antialiased and outer cycle will cover the bad looking edges
+     *
      * @param canvas The canvas on which to draw the child
      * @param child Who to draw
      * @param drawingTime The time at which draw is occurring
@@ -286,17 +314,13 @@ public class CircularView extends ViewGroup {
      */
     @Override
     protected boolean drawChild(@SuppressWarnings("NullableProblems") Canvas canvas, @SuppressWarnings("NullableProblems") View child, long drawingTime) {
+        // draw inner circle
+        canvas.save();
         canvas.clipPath(clipPath, Region.Op.REPLACE);
-        return super.drawChild(canvas, child, drawingTime);
-    }
+        boolean result = super.drawChild(canvas, child, drawingTime);
+        canvas.restore();
 
-    /**
-     * Responsible for drawing outer cycle (to see drawing of inner part see {@link #drawChild(android.graphics.Canvas, android.view.View, long)}).
-     * TODO: complete javadoc
-     * @param canvas The canvas on which to draw the view
-     */
-    @Override
-    public void onDraw(Canvas canvas) {
+        // draw outer circle
         float beg = 0;
         float end;
         if (items != null && items.size() > 0 && getSum() != 0)
@@ -308,6 +332,19 @@ public class CircularView extends ViewGroup {
         else {
             canvas.drawArc(outerBounds, beg, 360, false, defaultPaint);
         }
+
+        return result;
+    }
+
+    /**
+     * Whole layout drawing is placed into {@link #drawChild(android.graphics.Canvas, android.view.View, long)}
+     * because child layout is placed below outer cycle. This is needed because of suppressed possibilty
+     * to set clip bounds as antialiased
+     * @param canvas
+     */
+    @Override
+    public void onDraw(Canvas canvas) {
+        // view drown in drawChild()
     }
 
     // TODO: infinite (periodic) scroll and 4 quadrants
