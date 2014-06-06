@@ -9,7 +9,7 @@
         android:id="@+id/circle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        app:outer_width="30dp"
+        app:outer_width="20dp"
         app:inner_color="@color/orange"
         android:layout_margin="0dp"
         android:onClick="circleClick">

@@ -6,15 +6,18 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.Region;
 import android.os.Parcel;
 import android.os.Parcelable;
+import android.support.v4.view.MotionEventCompat;
 import android.support.v4.view.ViewCompat;
 import android.util.AttributeSet;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewConfiguration;
 import android.view.ViewGroup;
 import android.widget.Scroller;
 
@@ -27,13 +30,11 @@ import java.util.Map;
  * standard content cropped into circle, and outer to display PieChart-like portions of added
  * items. (see addItem() methods and/or sample application).
  *
- * TODO: OnDataChangeListener to animate changes
- * TODO: Improve touch event handling
+ * TODO: Add animations
  *
  * Created by VizGhar on 2.6.2014.
  */
 public class CircularView extends ViewGroup {
-    private MyGestureListener gestureListener;
 
     // list of items percentage of which will be displayed in outer circle
     private HashMap<Object, ItemDescriptor> items = new HashMap<Object, ItemDescriptor>();
@@ -42,7 +43,7 @@ public class CircularView extends ViewGroup {
     private int outerWidth;
 
     // bounds of whole view (substracted by half of width of outer circle)
-    private RectF innerBounds;
+    private Rect innerBounds;
 
     // rectangular bounds of child view
     private RectF outerBounds;
@@ -55,6 +56,21 @@ public class CircularView extends ViewGroup {
 
     // clip path where child should be placed
     private Path clipPath;
+
+    // holds whether view is scrolling or not
+    private boolean mIsScrolling = false;
+
+    private int mTouchSlop;
+
+    private int scroll;
+
+    private float centerX;
+    private float centerY;
+    private float innerRadius;
+    private float outerRadius;
+
+    private CircularGestureListener mGestureListener;
+    private GestureDetector gestureDetector;
 
     //////////////////////////////////////////////
     // INIT PART (constructors and initalizers) //
@@ -86,7 +102,7 @@ public class CircularView extends ViewGroup {
     }
 
     private void init() {
-        innerBounds = new RectF();
+        innerBounds = new Rect();
         outerBounds = new RectF();
         clipPath = new Path();
         defaultPaint = new Paint();
@@ -94,16 +110,64 @@ public class CircularView extends ViewGroup {
         defaultPaint.setStrokeWidth(outerWidth);
         defaultPaint.setStyle(Paint.Style.STROKE);
 
-        // TODO: when background is not set, view is not drawing Arc. Don't know why
-        setBackgroundColor(Color.TRANSPARENT);
         setLayerType(View.LAYER_TYPE_SOFTWARE, null);
 
-        gestureListener = new MyGestureListener();
+        ViewConfiguration vc = ViewConfiguration.get(getContext());
+        mTouchSlop = vc.getScaledTouchSlop();
+
+        mGestureListener = new CircularGestureListener();
+        gestureDetector = new GestureDetector(getContext(), mGestureListener);
     }
 
     //////////////////////////////////////////////
     // OUTER CIRCLE ITEM PROCESSING PART        //
     //////////////////////////////////////////////
+    public class ItemDescriptor implements Parcelable {
+
+        private float score;
+        private Paint paint;
+
+        public ItemDescriptor(float score, int color) {
+            this.score = score;
+            this.paint = new Paint();
+
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setColor(color);
+            paint.setStrokeWidth(outerWidth);
+            paint.setAntiAlias(true);
+        }
+
+        public ItemDescriptor(Parcel parcel){
+            this(parcel.readFloat(), parcel.readInt());
+        }
+
+        public float getScore() {
+            return score;
+        }
+
+        public void setScore(float score) {
+            this.score = score;
+        }
+
+        public Paint getPaint() {
+            return paint;
+        }
+
+        public void setPaint(Paint paint) {
+            this.paint = paint;
+        }
+
+        @Override
+        public int describeContents() {
+            return 0;
+        }
+
+        @Override
+        public void writeToParcel(Parcel parcel, int i) {
+            parcel.writeInt(paint.getColor());
+            parcel.writeFloat(score);
+        }
+    }
 
     /**
      * @return count of items
@@ -161,13 +225,7 @@ public class CircularView extends ViewGroup {
      * @param color color representing item
      */
     public void addItem(Object item, float score, int color) {
-        Paint paint = new Paint();
-        paint.setStyle(Paint.Style.STROKE);
-        paint.setColor(color);
-        paint.setStrokeWidth(outerWidth);
-        paint.setAntiAlias(true);
-
-        ItemDescriptor itemDescriptor = new ItemDescriptor(score, paint);
+        ItemDescriptor itemDescriptor = new ItemDescriptor(score, color);
         items.put(item, itemDescriptor);
     }
 
@@ -192,25 +250,45 @@ public class CircularView extends ViewGroup {
         return items.get(item);
     }
 
+    /**
+     * @param item added to outer view to obtain score from
+     * @return score of item
+     */
     public float getItemScore(Object item){
         return items.get(item).getScore();
     }
 
+    /**
+     * @param item added to outer view to set score to
+     * @param score to set
+     */
     public void setItemScore(Object item, float score){
         items.get(item).setScore(score);
         postInvalidate();
     }
 
+    /**
+     * @param item added to outer view to add score to
+     * @param score addition
+     */
     public void addItemScore(Object item, float score){
         ItemDescriptor descriptor = items.get(item);
         descriptor.setScore(descriptor.getScore() + score);
         postInvalidate();
     }
 
+    /**
+     * @param item added to outer view to obtain color from
+     * @return color of item
+     */
     public int getItemColor(Object item){
         return items.get(item).getPaint().getColor();
     }
 
+    /**
+     * @param item added to outer view to set color to
+     * @param color to set
+     */
     public void setItemColor(Object item, int color){
         items.get(item).getPaint().setColor(color);
         postInvalidate();
@@ -257,6 +335,7 @@ public class CircularView extends ViewGroup {
     //////////////////////////////////////////////
     // LAYING DOWN THE VIEW                     //
     //////////////////////////////////////////////
+    // TODO: implement pading
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         // whole view width and height
@@ -269,15 +348,20 @@ public class CircularView extends ViewGroup {
         outerBounds.bottom = size-outerWidth/2;
 
         // compute inner cycle bounds
-        innerBounds.left = outerWidth;
-        innerBounds.top = outerWidth;
-        innerBounds.right = size - outerWidth;
-        innerBounds.bottom = size - outerWidth;
+        innerBounds.left = outerWidth -2;
+        innerBounds.top = outerWidth -2;
+        innerBounds.right = size - outerWidth+2;
+        innerBounds.bottom = size - outerWidth+2;
+
+        centerX = (outerBounds.left + outerBounds.right) / 2;
+        centerY = (outerBounds.bottom + outerBounds.bottom) / 2;
+        innerRadius = (innerBounds.left - innerBounds.right) / 2;
+        outerRadius = (outerBounds.left - outerBounds.right + outerWidth) / 2;
 
         // compute clip path for inner view (added 2 pixels so the child seems antialliased)
         float center = (innerBounds.right + innerBounds.left)/2;
         if (!clipPath.isEmpty()) clipPath.reset();
-        clipPath.addCircle(center, center, center - outerWidth+2, Path.Direction.CW);
+        clipPath.addCircle(center, center, center - outerWidth + 5, Path.Direction.CW);
 
         // measure down the view(s)
         for (int i = 0; i < getChildCount(); i++) {
@@ -296,7 +380,7 @@ public class CircularView extends ViewGroup {
         for (int i = 0; i < getChildCount(); i++) {
             View child = getChildAt(i);
             if (child!=null)
-                child.layout((int) innerBounds.left, (int) innerBounds.top, (int) innerBounds.right, (int) innerBounds.bottom);
+                child.layout(innerBounds.left, innerBounds.top, innerBounds.right, innerBounds.bottom);
         }
     }
 
@@ -321,12 +405,13 @@ public class CircularView extends ViewGroup {
         canvas.restore();
 
         // draw outer circle
+        if (outerWidth <= 0) return result;
         float beg = 0;
         float end;
         if (items != null && items.size() > 0 && getSum() != 0)
             for (Map.Entry<Object, ItemDescriptor> item : items.entrySet()) {
                 end = (item.getValue().getScore() / getSum()) * 360;
-                canvas.drawArc(outerBounds, beg + gestureListener.getScroll(), end, false, item.getValue().getPaint());
+                canvas.drawArc(outerBounds, beg + scroll, end, false, item.getValue().getPaint());
                 beg += end;
             }
         else {
@@ -340,93 +425,19 @@ public class CircularView extends ViewGroup {
      * Whole layout drawing is placed into {@link #drawChild(android.graphics.Canvas, android.view.View, long)}
      * because child layout is placed below outer cycle. This is needed because of suppressed possibilty
      * to set clip bounds as antialiased
-     * @param canvas
+     * @param canvas to draw layout to
      */
     @Override
     public void onDraw(Canvas canvas) {
-        // view drown in drawChild()
     }
-
-    // TODO: infinite (periodic) scroll and 4 quadrants
-    class MyGestureListener extends GestureDetector.SimpleOnGestureListener implements OnTouchListener {
-
-        private Scroller mScroller;
-        private GestureDetector gesture;
-
-        private int minScroll = Integer.MIN_VALUE;
-        private int maxScroll = Integer.MAX_VALUE;
-
-        public MyGestureListener() {
-            mScroller = new Scroller(getContext());
-            gesture = new GestureDetector(getContext(), this);
-        }
-
-        @Override
-        public boolean onDown(MotionEvent event) {
-            mScroller.forceFinished(true);
-            mScroller.startScroll(mScroller.getCurrX(), 0, 0, 0);
-            ViewCompat.postInvalidateOnAnimation(CircularView.this);
-            return true;
-        }
-
-        @Override
-        public boolean onFling(MotionEvent event1, MotionEvent event2,
-                               float velocityX, float velocityY) {
-            mScroller.forceFinished(true);
-            mScroller.fling(getScroll(), 0, (int) velocityX, 0, minScroll, maxScroll, 0, 0);
-            ViewCompat.postInvalidateOnAnimation(CircularView.this);
-            return true;
-        }
-
-        @Override
-        public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
-            if (mScroller.getFinalX() - distanceX > minScroll  && mScroller.getFinalX() - distanceX < maxScroll) {
-                mScroller.startScroll(mScroller.getFinalX(), 0,
-                        (int) (-distanceX), 0);
-            }
-            ViewCompat.postInvalidateOnAnimation(CircularView.this);
-            return true;
-        }
-
-        public int getScroll() {
-            if (mScroller.computeScrollOffset()) {
-                requestLayout();
-                return mScroller.getCurrX() % 360;
-            }
-            return mScroller.getFinalX() % 360;
-        }
-
-        @Override
-        public boolean onTouch(View view, MotionEvent motionEvent) {
-            int eventAction = motionEvent.getActionMasked();
-            switch (eventAction) {
-                // on action up scroll back in bounds if needed
-                case MotionEvent.ACTION_UP:
-                case MotionEvent.ACTION_CANCEL:
-                    int x = mScroller.getCurrX();
-                    if (x < minScroll || x > maxScroll) {
-                        onFling(null, null, 0, 0);
-                    }
-            }
-            return gesture.onTouchEvent(motionEvent);
-        }
-
-        public void setScroll(int scroll) {
-            this.mScroller.setFinalX(scroll);
-        }
-    }
-
-    @Override
-    public void computeScroll() {
-        gestureListener.getScroll();
-    }
-
 
     //////////////////////////////////////////////
     // STATE SAVING AND RESTORATION             //
     //////////////////////////////////////////////
     static class SavedState extends BaseSavedState {
         int scroll;
+        HashMap items;
+
 
         SavedState(Parcelable superState) {
             super(superState);
@@ -435,12 +446,14 @@ public class CircularView extends ViewGroup {
         private SavedState(Parcel in) {
             super(in);
             this.scroll = in.readInt();
+            this.items = in.readHashMap(Object.class.getClassLoader());
         }
 
         @Override
-        public void writeToParcel(Parcel out, int flags) {
+        public void writeToParcel(@SuppressWarnings("NullableProblems") Parcel out, int flags) {
             super.writeToParcel(out, flags);
             out.writeInt(this.scroll);
+            out.writeMap(this.items);
         }
 
         //required field that makes Parcelables from a Parcel
@@ -460,7 +473,8 @@ public class CircularView extends ViewGroup {
         Parcelable superState = super.onSaveInstanceState();
         SavedState ss = new SavedState(superState);
 
-        ss.scroll = this.gestureListener.getScroll();
+        ss.scroll = this.scroll;
+        ss.items = this.items;
         return ss;
     }
 
@@ -474,67 +488,177 @@ public class CircularView extends ViewGroup {
         SavedState ss = (SavedState)state;
         super.onRestoreInstanceState(ss.getSuperState());
 
-        this.gestureListener.setScroll(ss.scroll);
+        this.scroll = ss.scroll;
+        this.items = (HashMap<Object, ItemDescriptor>)ss.items;
+        this.mGestureListener.setScroll(scroll);
     }
 
     //////////////////////////////
     //  Tracking item click     //
     //////////////////////////////
+    private float startX;
+    private float startY;
+
     @Override
-    public boolean onInterceptTouchEvent(MotionEvent __e) {
-        return evaluateTouchEvent(__e);
-    }
+    public boolean onInterceptTouchEvent(MotionEvent ev) {
+        final int action = MotionEventCompat.getActionMasked(ev);
 
-    // Constants
-    protected static final float DRAG_THRESHOLD = 10;
-
-    // Properties
-    protected boolean isPressed;
-    protected float startPressX;
-    protected float startPressY;
-    protected boolean isDragging;
-
-    // TODO : childview is still square, process touch event only if click event is in the circles
-    private boolean evaluateTouchEvent(MotionEvent __e) {
-        float dragDeltaX;
-        float dragDeltaY;
-
-        switch (__e.getAction()) {
+        switch (action) {
+            case MotionEvent.ACTION_CANCEL:
+            case MotionEvent.ACTION_UP:
+                mIsScrolling = false;
+                return false;
             case MotionEvent.ACTION_DOWN:
-                isPressed = true;
-                startPressX = __e.getX();
-                startPressY = __e.getY();
+                startX = ev.getX();
+                startY = ev.getY();
+                mGestureListener.onDown(ev);
                 break;
-            case MotionEvent.ACTION_MOVE:
-                if (isPressed && !isDragging) {
-                    dragDeltaX = __e.getX() - startPressX;
-                    dragDeltaY = __e.getY() - startPressY;
-
-                    if (Math.abs(dragDeltaX) > DRAG_THRESHOLD
-                            || Math.abs(dragDeltaY) > DRAG_THRESHOLD) {
-                        MotionEvent me = MotionEvent.obtain(__e);
-                        me.setAction(MotionEvent.ACTION_DOWN);
-                        me.setLocation(__e.getX() - dragDeltaX, __e.getY()
-                                - dragDeltaY);
-                        gestureListener.onTouch(this, me);
-                        me.recycle();
-                        isDragging = true;
-                    }
+            case MotionEvent.ACTION_MOVE: {
+                if (mIsScrolling) {
+                    return true;
+                }
+                final float xDiff = Math.max(
+                        Math.abs(ev.getX()-startX),
+                        Math.abs(ev.getY()-startY));
+                if (xDiff > mTouchSlop) {
+                    mIsScrolling = true;
+                    return true;
                 }
                 break;
-            case MotionEvent.ACTION_UP:
-                if (!isPressed)
-                    break;
-                isPressed = false;
-                if (isDragging)
-                    isDragging = false;
+            }
         }
-        return isDragging;
+        return false;
+    }
+
+    // TODO: process only if touched in cycle
+    @Override
+    public boolean onTouchEvent(@SuppressWarnings("NullableProblems") MotionEvent event) {
+        float distance = (float) Math.sqrt((startX-centerX)*(startX-centerX) + (startY-centerY)*(startY-centerY));
+        if (distance > innerRadius);
+
+        return gestureDetector.onTouchEvent(event) || super.onTouchEvent(event);
+    }
+
+    /**
+     * Special gesture listener to track events in circle divided into 4 parts (quadrants). In
+     * every quadrant is event processed differently (for example to move clockwise in top left
+     * fragment X must increase and Y decrease). Result scroll is computed as average of X and
+     * Y scroll values.
+     */
+    private class CircularGestureListener extends GestureDetector.SimpleOnGestureListener{
+        private final Pair TOP_LEFT_QUADRANT = new Pair(true, false);
+        private final Pair TOP_RIGHT_QUADRANT = new Pair(true, true);
+        private final Pair BOTTOM_RIGHT_QUADRANT = new Pair(false, true);
+        private final Pair BOTTOM_LEFT_QUADRANT = new Pair(false, false);
+
+        private Scroller mScroller;
+        private boolean resetScroll = true;
+
+        private Pair quadrant;
+
+        public CircularGestureListener(){
+            mScroller = new Scroller(getContext());
+        }
+
+        private class Pair{
+            public static final int POSITIVE = -1;
+            public static final int NEGATIVE = 1;
+
+            int x;
+            int y;
+
+            private Pair(boolean x, boolean y) {
+                this.x = x ? POSITIVE : NEGATIVE;
+                this.y = y ? POSITIVE : NEGATIVE;
+            }
+        }
+
+        public void setScroll(int scroll){
+            mScroller.setFinalX(scroll);
+            mScroller.setFinalY(scroll);
+        }
+
+        private Pair getQuadrant(float lastX, float lastY){
+            float centerX = (outerBounds.right - outerBounds.left) / 2;
+            float centerY = (outerBounds.bottom - outerBounds.top) / 2;
+            if (lastX <= centerX && lastY <= centerY)
+                return TOP_LEFT_QUADRANT;
+            if (lastX >= centerX && lastY <= centerY)
+                return TOP_RIGHT_QUADRANT;
+            if (lastX >= centerX && lastY >= centerY)
+                return BOTTOM_RIGHT_QUADRANT;
+            if (lastX <= centerX && lastY >= centerY)
+                return BOTTOM_LEFT_QUADRANT;
+            else
+                throw new UnknownError();
+        }
+
+        @Override
+        public boolean onDown(MotionEvent event) {
+            mScroller.forceFinished(true);
+            quadrant = getQuadrant(event.getX(), event.getY());
+            ViewCompat.postInvalidateOnAnimation(CircularView.this);
+            resetScroll = true;
+            return true;
+        }
+
+        @Override
+        public boolean onFling(MotionEvent event1, MotionEvent event2,
+                               float velocityX, float velocityY) {
+            mScroller.forceFinished(true);
+            mScroller.fling(
+                    mScroller.getFinalX(),
+                    mScroller.getFinalY(),
+                    (int) -((quadrant.x) * velocityX),
+                    (int) -((quadrant.y) * velocityY),
+                    Integer.MIN_VALUE,
+                    Integer.MAX_VALUE,
+                    Integer.MIN_VALUE,
+                    Integer.MAX_VALUE);
+            ViewCompat.postInvalidateOnAnimation(CircularView.this);
+            quadrant = getQuadrant(event2.getX(), event2.getY());
+            return true;
+        }
+
+        @Override
+        public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
+            if (resetScroll){
+                distanceX = 0;
+                distanceY = 0;
+                resetScroll = false;
+            }
+            mScroller.startScroll(
+                    mScroller.getFinalX(),
+                    mScroller.getFinalY(),
+                    (int) ((quadrant.x) * distanceX),
+                    (int) ((quadrant.y) * distanceY), 0);
+            ViewCompat.postInvalidateOnAnimation(CircularView.this);
+            quadrant = getQuadrant(e2.getX(), e2.getY());
+            return true;
+        }
+
+        public boolean computeScroll(){
+            boolean result = mScroller.computeScrollOffset();
+            scrollTo((mScroller.getCurrX()+mScroller.getCurrY())/2);
+            return result;
+        }
+    }
+
+    /**
+     * Scroll circle to defined angle. This is always computed as modulo 360
+     * @param angle to scroll to
+     */
+    public void scrollTo(int angle){
+        scroll = angle % 360;
     }
 
     @Override
-    public boolean onTouchEvent(@SuppressWarnings("NullableProblems") MotionEvent __e) {
-        evaluateTouchEvent(__e);
-        return gestureListener.onTouch(this, __e);
+    public void scrollTo(int x, int y) {
+        throw new IllegalStateException("Method not supported, use scrollTo(int) instead");
+    }
+
+    @Override
+    public void computeScroll() {
+        if (mGestureListener.computeScroll()) ViewCompat.postInvalidateOnAnimation(this);
     }
 }

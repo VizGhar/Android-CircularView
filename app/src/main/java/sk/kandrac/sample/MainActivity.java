@@ -6,7 +6,6 @@ import android.view.View;
 import android.widget.Toast;
 
 import sk.kandrac.circularview.CircularView;
-import sk.kandrac.circularview.ItemDescriptor;
 
 
 public class MainActivity extends ActionBarActivity {
