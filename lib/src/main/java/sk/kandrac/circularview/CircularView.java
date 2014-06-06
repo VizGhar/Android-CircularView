@@ -319,14 +319,14 @@ public class CircularView extends ViewGroup {
     }
 
     @Override
-    public void addView(@SuppressWarnings("NullableProblems") View child, LayoutParams params) {
+    public void addView(@SuppressWarnings("NullableProblems") View child, ViewGroup.LayoutParams params) {
         if (getChildCount() > 0)
             throw new IllegalStateException("CircularView can host only one direct child");
         super.addView(child, params);
     }
 
     @Override
-    public void addView(@SuppressWarnings("NullableProblems") View child, int index, LayoutParams params) {
+    public void addView(@SuppressWarnings("NullableProblems") View child, int index, ViewGroup.LayoutParams params) {
         if (getChildCount() > 0)
             throw new IllegalStateException("CircularView can host only one direct child");
         super.addView(child, index, params);
@@ -354,9 +354,9 @@ public class CircularView extends ViewGroup {
         innerBounds.bottom = size - outerWidth+2;
 
         centerX = (outerBounds.left + outerBounds.right) / 2;
-        centerY = (outerBounds.bottom + outerBounds.bottom) / 2;
-        innerRadius = (innerBounds.left - innerBounds.right) / 2;
-        outerRadius = (outerBounds.left - outerBounds.right + outerWidth) / 2;
+        centerY = (outerBounds.bottom + outerBounds.top) / 2;
+        innerRadius = (innerBounds.right - innerBounds.left) / 2;
+        outerRadius = (outerBounds.right - outerBounds.left + outerWidth) / 2;
 
         // compute clip path for inner view (added 2 pixels so the child seems antialliased)
         float center = (innerBounds.right + innerBounds.left)/2;
@@ -370,8 +370,21 @@ public class CircularView extends ViewGroup {
                 measureChild(child, size - outerWidth, size - outerWidth);
         }
 
-        // set dimension for whole view
-        setMeasuredDimension(size, size);
+        setMeasuredDimension(resolveSize(size, widthMeasureSpec), resolveSize(size, widthMeasureSpec));
+    }
+
+    @Override
+    protected void measureChild(View child, int parentWidthMeasureSpec, int parentHeightMeasureSpec) {
+        LayoutParams params = (LayoutParams) child.getLayoutParams();
+        if (params == null) {
+            params = new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+        }
+        params.x = innerBounds.left;
+        params.y = innerBounds.top;
+        params.width = (int)innerRadius*2;
+        params.height = (int)innerRadius*2;
+        child.setLayoutParams(params);
+        child.measure(parentWidthMeasureSpec, parentHeightMeasureSpec);
     }
 
     @Override
@@ -379,8 +392,10 @@ public class CircularView extends ViewGroup {
         // lay down view(s) into inner bounds
         for (int i = 0; i < getChildCount(); i++) {
             View child = getChildAt(i);
-            if (child!=null)
-                child.layout(innerBounds.left, innerBounds.top, innerBounds.right, innerBounds.bottom);
+            if (child!=null) {
+                LayoutParams params = (LayoutParams) child.getLayoutParams();
+                child.layout(params.x, params.y, params.x + params.width, params.x + params.height);
+            }
         }
     }
 
@@ -429,6 +444,45 @@ public class CircularView extends ViewGroup {
      */
     @Override
     public void onDraw(Canvas canvas) {
+    }
+
+    //////////////////////////////////////
+    //  Layout parameters Processing    //
+    //////////////////////////////////////
+    @Override
+    protected boolean checkLayoutParams(ViewGroup.LayoutParams p) {
+        return p instanceof LayoutParams;
+    }
+
+    @Override
+    protected LayoutParams generateDefaultLayoutParams() {
+        return new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+    }
+
+    @Override
+    public LayoutParams generateLayoutParams(AttributeSet attrs) {
+        return new LayoutParams(getContext(), attrs);
+    }
+
+    @Override
+    protected LayoutParams generateLayoutParams(ViewGroup.LayoutParams p) {
+        return new LayoutParams(p.width, p.height);
+    }
+
+    /**
+     * This layout parameters holds on addition position of child item.
+     */
+    public static class LayoutParams extends ViewGroup.LayoutParams {
+        int x;
+        int y;
+
+        public LayoutParams(Context context, AttributeSet attrs) {
+            super(context, attrs);
+        }
+
+        public LayoutParams(int w, int h) {
+            super(w, h);
+        }
     }
 
     //////////////////////////////////////////////
@@ -506,11 +560,14 @@ public class CircularView extends ViewGroup {
         switch (action) {
             case MotionEvent.ACTION_CANCEL:
             case MotionEvent.ACTION_UP:
-                mIsScrolling = false;
                 return false;
             case MotionEvent.ACTION_DOWN:
+                mIsScrolling = false;
                 startX = ev.getX();
                 startY = ev.getY();
+                // TODO: allow user to choose whether parent should take child activity or not... currenty both of them processing onDown, should be changed
+                // to do so use getDistanceFromCenter method
+                // if not clicked inside inner circle intercept, otherwise proceed with both child and parent
                 mGestureListener.onDown(ev);
                 break;
             case MotionEvent.ACTION_MOVE: {
@@ -530,12 +587,14 @@ public class CircularView extends ViewGroup {
         return false;
     }
 
-    // TODO: process only if touched in cycle
+    private float getDistanceFromCenter(float x, float y){
+        float xDist = x - centerX;
+        float yDist = y - centerY;
+        return (float) Math.sqrt(xDist * xDist + yDist * yDist);
+    }
+
     @Override
     public boolean onTouchEvent(@SuppressWarnings("NullableProblems") MotionEvent event) {
-        float distance = (float) Math.sqrt((startX-centerX)*(startX-centerX) + (startY-centerY)*(startY-centerY));
-        if (distance > innerRadius);
-
         return gestureDetector.onTouchEvent(event) || super.onTouchEvent(event);
     }
 
