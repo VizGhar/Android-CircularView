@@ -12,13 +12,30 @@
         android:layout_margin="0dp"
         android:onClick="circleClick">
 
-            <ImageView
-                android:onClick="centerClick"
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:id="@+id/scrollView" >
+
+            <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:src="@drawable/adele"
-                />
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+                <ImageView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:src="@drawable/adele"/>
+
+                <ImageView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:src="@drawable/adele"/>
+                </LinearLayout>
+        </ScrollView>
+
     </sk.kandrac.circularview.CircularView>
+
+
 
     <Button
         android:layout_width="wrap_content"

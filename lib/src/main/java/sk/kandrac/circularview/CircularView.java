@@ -29,9 +29,9 @@ import java.util.Map;
  * This view is intended to display Circular view composed of 2 circles. Inner circle to show
  * standard content cropped into circle, and outer to display PieChart-like portions of added
  * items. (see addItem() methods and/or sample application).
- *
+ * <p/>
  * TODO: Add animations
- *
+ * <p/>
  * Created by VizGhar on 2.6.2014.
  */
 public class CircularView extends ViewGroup {
@@ -137,7 +137,7 @@ public class CircularView extends ViewGroup {
             paint.setAntiAlias(true);
         }
 
-        public ItemDescriptor(Parcel parcel){
+        public ItemDescriptor(Parcel parcel) {
             this(parcel.readFloat(), parcel.readInt());
         }
 
@@ -179,6 +179,7 @@ public class CircularView extends ViewGroup {
     /**
      * Adds all items from collection into layout via {@link #addView(android.view.View)} method,
      * see the method for detailed information.
+     *
      * @param items to be added to outer cycle
      */
     public void addItems(Collection<Object> items) {
@@ -190,6 +191,7 @@ public class CircularView extends ViewGroup {
     /**
      * Same as {@link #addItem(Object, float, int)} <br/>
      * with 0 score and {@link android.graphics.Color#BLACK} color
+     *
      * @param item to be added
      */
     public void addItem(Object item) {
@@ -199,6 +201,7 @@ public class CircularView extends ViewGroup {
     /**
      * Same as {@link #addItem(Object, float, int)} <br/>
      * with 0 score
+     *
      * @param item to be added
      */
     public void addItem(Object item, int color) {
@@ -208,6 +211,7 @@ public class CircularView extends ViewGroup {
     /**
      * Same as {@link #addItem(Object, float, int)} <br/>
      * with {@link android.graphics.Color#BLACK} color
+     *
      * @param item to be added
      */
     public void addItem(Object item, float score) {
@@ -220,7 +224,7 @@ public class CircularView extends ViewGroup {
      * on its current score. Therefore is needed to input item score and item color so the user
      * can distinguish differences between items.
      *
-     * @param item to be added
+     * @param item  to be added
      * @param score initial score of item
      * @param color color representing item
      */
@@ -242,6 +246,7 @@ public class CircularView extends ViewGroup {
 
     /**
      * Deprecated: use get/set ItemScore/ItemColor instead
+     *
      * @param item of which descriptor should be obtained
      * @return the descriptor of the item, or null if item not presented.
      */
@@ -254,24 +259,24 @@ public class CircularView extends ViewGroup {
      * @param item added to outer view to obtain score from
      * @return score of item
      */
-    public float getItemScore(Object item){
+    public float getItemScore(Object item) {
         return items.get(item).getScore();
     }
 
     /**
-     * @param item added to outer view to set score to
+     * @param item  added to outer view to set score to
      * @param score to set
      */
-    public void setItemScore(Object item, float score){
+    public void setItemScore(Object item, float score) {
         items.get(item).setScore(score);
         postInvalidate();
     }
 
     /**
-     * @param item added to outer view to add score to
+     * @param item  added to outer view to add score to
      * @param score addition
      */
-    public void addItemScore(Object item, float score){
+    public void addItemScore(Object item, float score) {
         ItemDescriptor descriptor = items.get(item);
         descriptor.setScore(descriptor.getScore() + score);
         postInvalidate();
@@ -281,15 +286,15 @@ public class CircularView extends ViewGroup {
      * @param item added to outer view to obtain color from
      * @return color of item
      */
-    public int getItemColor(Object item){
+    public int getItemColor(Object item) {
         return items.get(item).getPaint().getColor();
     }
 
     /**
-     * @param item added to outer view to set color to
+     * @param item  added to outer view to set color to
      * @param color to set
      */
-    public void setItemColor(Object item, int color){
+    public void setItemColor(Object item, int color) {
         items.get(item).getPaint().setColor(color);
         postInvalidate();
     }
@@ -342,16 +347,16 @@ public class CircularView extends ViewGroup {
         int size = Math.min(MeasureSpec.getSize(widthMeasureSpec), MeasureSpec.getSize(heightMeasureSpec));
 
         // compute outer cycle bounds (need to cut width of outer cycle because of drawArc method)
-        outerBounds.left = outerWidth/2;
-        outerBounds.top = outerWidth/2;
-        outerBounds.right = size-outerWidth/2;
-        outerBounds.bottom = size-outerWidth/2;
+        outerBounds.left = outerWidth / 2;
+        outerBounds.top = outerWidth / 2;
+        outerBounds.right = size - outerWidth / 2;
+        outerBounds.bottom = size - outerWidth / 2;
 
         // compute inner cycle bounds
-        innerBounds.left = outerWidth -2;
-        innerBounds.top = outerWidth -2;
-        innerBounds.right = size - outerWidth+2;
-        innerBounds.bottom = size - outerWidth+2;
+        innerBounds.left = outerWidth - 2;
+        innerBounds.top = outerWidth - 2;
+        innerBounds.right = size - outerWidth + 2;
+        innerBounds.bottom = size - outerWidth + 2;
 
         centerX = (outerBounds.left + outerBounds.right) / 2;
         centerY = (outerBounds.bottom + outerBounds.top) / 2;
@@ -359,14 +364,14 @@ public class CircularView extends ViewGroup {
         outerRadius = (outerBounds.right - outerBounds.left + outerWidth) / 2;
 
         // compute clip path for inner view (added 2 pixels so the child seems antialliased)
-        float center = (innerBounds.right + innerBounds.left)/2;
+        float center = (innerBounds.right + innerBounds.left) / 2;
         if (!clipPath.isEmpty()) clipPath.reset();
         clipPath.addCircle(center, center, center - outerWidth + 5, Path.Direction.CW);
 
         // measure down the view(s)
         for (int i = 0; i < getChildCount(); i++) {
             View child = getChildAt(i);
-            if (child!=null)
+            if (child != null)
                 measureChild(child, size - outerWidth, size - outerWidth);
         }
 
@@ -381,8 +386,8 @@ public class CircularView extends ViewGroup {
         }
         params.x = innerBounds.left;
         params.y = innerBounds.top;
-        params.width = (int)innerRadius*2;
-        params.height = (int)innerRadius*2;
+        params.width = (int) innerRadius * 2;
+        params.height = (int) innerRadius * 2;
         child.setLayoutParams(params);
         child.measure(parentWidthMeasureSpec, parentHeightMeasureSpec);
     }
@@ -392,7 +397,7 @@ public class CircularView extends ViewGroup {
         // lay down view(s) into inner bounds
         for (int i = 0; i < getChildCount(); i++) {
             View child = getChildAt(i);
-            if (child!=null) {
+            if (child != null) {
                 LayoutParams params = (LayoutParams) child.getLayoutParams();
                 child.layout(params.x, params.y, params.x + params.width, params.x + params.height);
             }
@@ -402,12 +407,12 @@ public class CircularView extends ViewGroup {
     /**
      * This method is responsible for drawing child(s) into clip path. For inspiration special thanks
      * to <a href="http://stackoverflow.com/a/24040115/2316926">budius</a>
-     *
+     * <p/>
      * After child is drawn outer cycle will have to be drawn. This is not implemented in onDraw method,
      * because the child is not antialiased and outer cycle will cover the bad looking edges
      *
-     * @param canvas The canvas on which to draw the child
-     * @param child Who to draw
+     * @param canvas      The canvas on which to draw the child
+     * @param child       Who to draw
      * @param drawingTime The time at which draw is occurring
      * @return True if an invalidate() was issued
      */
@@ -440,6 +445,7 @@ public class CircularView extends ViewGroup {
      * Whole layout drawing is placed into {@link #drawChild(android.graphics.Canvas, android.view.View, long)}
      * because child layout is placed below outer cycle. This is needed because of suppressed possibilty
      * to set clip bounds as antialiased
+     *
      * @param canvas to draw layout to
      */
     @Override
@@ -516,6 +522,7 @@ public class CircularView extends ViewGroup {
                     public SavedState createFromParcel(Parcel in) {
                         return new SavedState(in);
                     }
+
                     public SavedState[] newArray(int size) {
                         return new SavedState[size];
                     }
@@ -534,16 +541,16 @@ public class CircularView extends ViewGroup {
 
     @Override
     public void onRestoreInstanceState(Parcelable state) {
-        if(!(state instanceof SavedState)) {
+        if (!(state instanceof SavedState)) {
             super.onRestoreInstanceState(state);
             return;
         }
 
-        SavedState ss = (SavedState)state;
+        SavedState ss = (SavedState) state;
         super.onRestoreInstanceState(ss.getSuperState());
 
         this.scroll = ss.scroll;
-        this.items = (HashMap<Object, ItemDescriptor>)ss.items;
+        this.items = (HashMap<Object, ItemDescriptor>) ss.items;
         this.mGestureListener.setScroll(scroll);
     }
 
@@ -552,31 +559,34 @@ public class CircularView extends ViewGroup {
     //////////////////////////////
     private float startX;
     private float startY;
+    private boolean shouldScroll;
 
     @Override
     public boolean onInterceptTouchEvent(MotionEvent ev) {
         final int action = MotionEventCompat.getActionMasked(ev);
 
         switch (action) {
-            case MotionEvent.ACTION_CANCEL:
-            case MotionEvent.ACTION_UP:
-                return false;
             case MotionEvent.ACTION_DOWN:
                 mIsScrolling = false;
-                startX = ev.getX();
-                startY = ev.getY();
-                // TODO: allow user to choose whether parent should take child activity or not... currenty both of them processing onDown, should be changed
-                // to do so use getDistanceFromCenter method
-                // if not clicked inside inner circle intercept, otherwise proceed with both child and parent
-                mGestureListener.onDown(ev);
+                shouldScroll = false;
+                // intercept if ondown is outside radius
+                float distance = getDistanceFromCenter(ev.getX(), ev.getY());
+                if (distance > innerRadius && distance <= outerRadius) {
+                    startX = ev.getX();
+                    startY = ev.getY();
+                    shouldScroll = true;
+                    return true;
+                }
+                else if (distance > outerRadius) return true; // cannot scroll but child cannot proceed too
                 break;
             case MotionEvent.ACTION_MOVE: {
+                if (!shouldScroll) break;
                 if (mIsScrolling) {
                     return true;
                 }
                 final float xDiff = Math.max(
-                        Math.abs(ev.getX()-startX),
-                        Math.abs(ev.getY()-startY));
+                        Math.abs(ev.getX() - startX),
+                        Math.abs(ev.getY() - startY));
                 if (xDiff > mTouchSlop) {
                     mIsScrolling = true;
                     return true;
@@ -587,7 +597,7 @@ public class CircularView extends ViewGroup {
         return false;
     }
 
-    private float getDistanceFromCenter(float x, float y){
+    private float getDistanceFromCenter(float x, float y) {
         float xDist = x - centerX;
         float yDist = y - centerY;
         return (float) Math.sqrt(xDist * xDist + yDist * yDist);
@@ -595,7 +605,7 @@ public class CircularView extends ViewGroup {
 
     @Override
     public boolean onTouchEvent(@SuppressWarnings("NullableProblems") MotionEvent event) {
-        return gestureDetector.onTouchEvent(event) || super.onTouchEvent(event);
+        return shouldScroll && gestureDetector.onTouchEvent(event);
     }
 
     /**
@@ -604,7 +614,7 @@ public class CircularView extends ViewGroup {
      * fragment X must increase and Y decrease). Result scroll is computed as average of X and
      * Y scroll values.
      */
-    private class CircularGestureListener extends GestureDetector.SimpleOnGestureListener{
+    private class CircularGestureListener extends GestureDetector.SimpleOnGestureListener {
         private final Pair TOP_LEFT_QUADRANT = new Pair(true, false);
         private final Pair TOP_RIGHT_QUADRANT = new Pair(true, true);
         private final Pair BOTTOM_RIGHT_QUADRANT = new Pair(false, true);
@@ -615,11 +625,11 @@ public class CircularView extends ViewGroup {
 
         private Pair quadrant;
 
-        public CircularGestureListener(){
+        public CircularGestureListener() {
             mScroller = new Scroller(getContext());
         }
 
-        private class Pair{
+        private class Pair {
             public static final int POSITIVE = -1;
             public static final int NEGATIVE = 1;
 
@@ -632,12 +642,12 @@ public class CircularView extends ViewGroup {
             }
         }
 
-        public void setScroll(int scroll){
+        public void setScroll(int scroll) {
             mScroller.setFinalX(scroll);
             mScroller.setFinalY(scroll);
         }
 
-        private Pair getQuadrant(float lastX, float lastY){
+        private Pair getQuadrant(float lastX, float lastY) {
             float centerX = (outerBounds.right - outerBounds.left) / 2;
             float centerY = (outerBounds.bottom - outerBounds.top) / 2;
             if (lastX <= centerX && lastY <= centerY)
@@ -681,7 +691,7 @@ public class CircularView extends ViewGroup {
 
         @Override
         public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
-            if (resetScroll){
+            if (resetScroll) {
                 distanceX = 0;
                 distanceY = 0;
                 resetScroll = false;
@@ -696,18 +706,19 @@ public class CircularView extends ViewGroup {
             return true;
         }
 
-        public boolean computeScroll(){
+        public boolean computeScroll() {
             boolean result = mScroller.computeScrollOffset();
-            scrollTo((mScroller.getCurrX()+mScroller.getCurrY())/2);
+            scrollTo((mScroller.getCurrX() + mScroller.getCurrY()) / 2);
             return result;
         }
     }
 
     /**
      * Scroll circle to defined angle. This is always computed as modulo 360
+     *
      * @param angle to scroll to
      */
-    public void scrollTo(int angle){
+    public void scrollTo(int angle) {
         scroll = angle % 360;
     }
 
