@@ -29,9 +29,7 @@ import java.util.Map;
  * This view is intended to display Circular view composed of 2 circles. Inner circle to show
  * standard content cropped into circle, and outer to display PieChart-like portions of added
  * items. (see addItem() methods and/or sample application).
- * <p/>
- * TODO: Add animations
- * <p/>
+ *
  * Created by VizGhar on 2.6.2014.
  */
 public class CircularView extends ViewGroup {
@@ -64,10 +62,11 @@ public class CircularView extends ViewGroup {
 
     private int scroll;
 
-    private float centerX;
-    private float centerY;
+    private float center;
+
     private float innerRadius;
     private float outerRadius;
+    private float rotateSpeed;
 
     private CircularGestureListener mGestureListener;
     private GestureDetector gestureDetector;
@@ -97,7 +96,8 @@ public class CircularView extends ViewGroup {
      */
     private void parseAttributes(TypedArray attrs) {
         outerWidth = (int) attrs.getDimension(R.styleable.CircularView_outer_width, 50);
-        defaultColor = attrs.getColor(R.styleable.CircularView_inner_color, Color.BLACK);
+        defaultColor = attrs.getColor(R.styleable.CircularView_default_color, Color.BLACK);
+        rotateSpeed = attrs.getFloat(R.styleable.CircularView_rotate_speed, 1.0f);
         attrs.recycle();
     }
 
@@ -117,6 +117,37 @@ public class CircularView extends ViewGroup {
 
         mGestureListener = new CircularGestureListener();
         gestureDetector = new GestureDetector(getContext(), mGestureListener);
+        gestureDetector.setIsLongpressEnabled(false);
+    }
+
+    public int getDefaultPaintColor(){
+        return this.defaultColor;
+    }
+
+    public void setDefaultPaintColor(int color){
+        this.defaultColor = color;
+        this.defaultPaint.setColor(defaultColor);
+    }
+
+    public int getOuterWidth(){
+        return this.outerWidth;
+    }
+
+    public void setOuterWidth(int width){
+        this.outerWidth = width;
+        this.defaultPaint.setStrokeWidth(width);
+        for (Map.Entry<Object,ItemDescriptor> desc : items.entrySet()){
+            desc.getValue().setPaintWidth(width);
+        }
+        requestLayout();
+    }
+
+    public void setRotateSpeed(float speed){
+        this.rotateSpeed = speed;
+    }
+
+    public float getRotateSpeed(){
+        return this.rotateSpeed;
     }
 
     //////////////////////////////////////////////
@@ -155,6 +186,10 @@ public class CircularView extends ViewGroup {
 
         public void setPaint(Paint paint) {
             this.paint = paint;
+        }
+
+        public void setPaintWidth(int width){
+            this.paint.setStrokeWidth(width);
         }
 
         @Override
@@ -340,33 +375,38 @@ public class CircularView extends ViewGroup {
     //////////////////////////////////////////////
     // LAYING DOWN THE VIEW                     //
     //////////////////////////////////////////////
-    // TODO: implement pading
+    private int getMax(int[] nums){
+        int max = Integer.MIN_VALUE;
+        for (int i : nums){
+            if (max < i) max = i;
+        }
+        return max;
+    }
+
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         // whole view width and height
-        int size = Math.min(MeasureSpec.getSize(widthMeasureSpec), MeasureSpec.getSize(heightMeasureSpec));
-
+        final int size = Math.min(MeasureSpec.getSize(widthMeasureSpec), MeasureSpec.getSize(heightMeasureSpec));
+        final int padding = getMax(new int[]{getPaddingLeft(), getPaddingTop(), getPaddingRight(), getPaddingBottom()});
         // compute outer cycle bounds (need to cut width of outer cycle because of drawArc method)
-        outerBounds.left = outerWidth / 2;
-        outerBounds.top = outerWidth / 2;
-        outerBounds.right = size - outerWidth / 2;
-        outerBounds.bottom = size - outerWidth / 2;
+        outerBounds.left = outerWidth / 2 + padding;
+        outerBounds.top = outerWidth / 2 + padding;
+        outerBounds.right = size - outerWidth / 2 - padding;
+        outerBounds.bottom = size - outerWidth / 2 - padding;
 
         // compute inner cycle bounds
-        innerBounds.left = outerWidth - 2;
-        innerBounds.top = outerWidth - 2;
-        innerBounds.right = size - outerWidth + 2;
-        innerBounds.bottom = size - outerWidth + 2;
+        innerBounds.left = outerWidth + padding - 2;
+        innerBounds.top = outerWidth + padding - 2;
+        innerBounds.right = size - outerWidth - padding + 2;
+        innerBounds.bottom = size - outerWidth - padding + 2;
 
-        centerX = (outerBounds.left + outerBounds.right) / 2;
-        centerY = (outerBounds.bottom + outerBounds.top) / 2;
         innerRadius = (innerBounds.right - innerBounds.left) / 2;
         outerRadius = (outerBounds.right - outerBounds.left + outerWidth) / 2;
 
         // compute clip path for inner view (added 2 pixels so the child seems antialliased)
-        float center = (innerBounds.right + innerBounds.left) / 2;
+        center = (innerBounds.right + innerBounds.left) / 2;
         if (!clipPath.isEmpty()) clipPath.reset();
-        clipPath.addCircle(center, center, center - outerWidth + 5, Path.Direction.CW);
+        clipPath.addCircle(center, center, center - outerWidth - padding + 5, Path.Direction.CW);
 
         // measure down the view(s)
         for (int i = 0; i < getChildCount(); i++) {
@@ -375,7 +415,7 @@ public class CircularView extends ViewGroup {
                 measureChild(child, size - outerWidth, size - outerWidth);
         }
 
-        setMeasuredDimension(resolveSize(size, widthMeasureSpec), resolveSize(size, widthMeasureSpec));
+        setMeasuredDimension(size, size);
     }
 
     @Override
@@ -437,7 +477,6 @@ public class CircularView extends ViewGroup {
         else {
             canvas.drawArc(outerBounds, beg, 360, false, defaultPaint);
         }
-
         return result;
     }
 
@@ -516,7 +555,6 @@ public class CircularView extends ViewGroup {
             out.writeMap(this.items);
         }
 
-        //required field that makes Parcelables from a Parcel
         public static final Parcelable.Creator<SavedState> CREATOR =
                 new Parcelable.Creator<SavedState>() {
                     public SavedState createFromParcel(Parcel in) {
@@ -598,8 +636,8 @@ public class CircularView extends ViewGroup {
     }
 
     private float getDistanceFromCenter(float x, float y) {
-        float xDist = x - centerX;
-        float yDist = y - centerY;
+        float xDist = x - center;
+        float yDist = y - center;
         return (float) Math.sqrt(xDist * xDist + yDist * yDist);
     }
 
@@ -664,10 +702,10 @@ public class CircularView extends ViewGroup {
 
         @Override
         public boolean onDown(MotionEvent event) {
+            resetScroll = true;
             mScroller.forceFinished(true);
             quadrant = getQuadrant(event.getX(), event.getY());
             ViewCompat.postInvalidateOnAnimation(CircularView.this);
-            resetScroll = true;
             return true;
         }
 
@@ -694,6 +732,8 @@ public class CircularView extends ViewGroup {
             if (resetScroll) {
                 distanceX = 0;
                 distanceY = 0;
+                mScroller.setFinalX(mScroller.getCurrX());
+                mScroller.setFinalY(mScroller.getCurrY());
                 resetScroll = false;
             }
             mScroller.startScroll(
@@ -708,18 +748,22 @@ public class CircularView extends ViewGroup {
 
         public boolean computeScroll() {
             boolean result = mScroller.computeScrollOffset();
-            scrollTo((mScroller.getCurrX() + mScroller.getCurrY()) / 2);
+            CircularView.this.setScroll((int)(rotateSpeed * (mScroller.getCurrX() + mScroller.getCurrY()) / 2));
             return result;
         }
     }
 
     /**
-     * Scroll circle to defined angle. This is always computed as modulo 360
+     * Scroll circle to defined value.
      *
-     * @param angle to scroll to
+     * @param scroll to scroll to
      */
-    public void scrollTo(int angle) {
-        scroll = angle % 360;
+    public void setScroll(int scroll){
+        this.scroll = scroll;
+    }
+
+    public int getScroll(){
+        return scroll;
     }
 
     @Override

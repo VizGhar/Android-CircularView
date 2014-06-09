@@ -5,12 +5,16 @@
 
 
     <sk.kandrac.circularview.CircularView
+        android:padding="30dp"
         android:layout_centerInParent="true"
         android:id="@+id/circle"
+        app:outer_width="20dp"
+        app:default_color="@color/blue"
+        app:rotate_speed="1"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_margin="0dp"
-        android:onClick="circleClick">
+        android:onClick="circleClick"
+        android:background="@android:color/darker_gray">
 
         <ScrollView
             android:layout_width="match_parent"
@@ -18,7 +22,8 @@
             android:id="@+id/scrollView" >
 
             <LinearLayout
-                android:layout_width="match_parent"
+                android:layout_gravity="center_horizontal"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
                 <ImageView
@@ -46,6 +51,17 @@
         android:layout_alignParentLeft="true"
         android:layout_alignParentStart="true"
         android:onClick="addpos"/>
+
+    <SeekBar
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/seekBar"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentRight="true"
+        android:max="50"
+
+        android:progress="20" />
 
 
 </RelativeLayout>
