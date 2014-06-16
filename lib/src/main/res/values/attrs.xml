@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="CircularView">
+        <attr name="outer_width" format="dimension"/>
+        <attr name="default_color" format="color"/>
+        <attr name="rotate_speed" format="float"/>
+    </declare-styleable>
+</resources>
