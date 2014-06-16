@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- From: file:/C:/Users/VizGhar/Git/CircularView/lib/src/main/res/values/attrs.xml -->
+    <eat-comment />
+
+    <declare-styleable name="CircularView">
+        <attr name="outer_width" format="dimension" />
+        <attr name="default_color" format="color" />
+        <attr name="rotate_speed" format="float" />
+    </declare-styleable>
+
+</resources>

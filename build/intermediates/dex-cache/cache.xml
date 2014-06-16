@@ -8,11 +8,11 @@
         revision="19.1.0"
         sha1="3499ceba05ca1f6037c6a2fad73df8f636224a28"/>
     <item
-        dex="C:\Users\VizGhar\Git\CircularView\app\build\intermediates\pre-dexed\debug\classes-4fcbef0f52a1bff222594c96ff7ae440d2520486.jar"
-        jar="C:\Users\VizGhar\Git\CircularView\build\intermediates\exploded-aar\sk.kandrac.circularview\lib\0.0.1-SNAPSHOT\classes.jar"
+        dex="C:\Users\VizGhar\Git\CircularView\app\build\intermediates\pre-dexed\release\classes-1729c72ac6729ac9c8e6a3539dce13a5cc5d1c7f.jar"
+        jar="C:\Users\VizGhar\Git\CircularView\build\intermediates\exploded-aar\com.github.vizghar.circularview\lib\0.0.1\classes.jar"
         jumboMode="false"
         revision="19.1.0"
-        sha1="1d025a60a557c9721223ee1d4dfd3b785f2053ef"/>
+        sha1="3e139cc21a7842e59d66ddc646028280912171f4"/>
     <item
         dex="C:\Users\VizGhar\Git\CircularView\app\build\intermediates\pre-dexed\release\support-v4-19.1.0-e311e493b238b75da4095bd5ee7b69d76d73dc42.jar"
         jar="C:\Program Files (x86)\Android\android-studio\sdk\extras\android\m2repository\com\android\support\support-v4\19.1.0\support-v4-19.1.0.jar"
