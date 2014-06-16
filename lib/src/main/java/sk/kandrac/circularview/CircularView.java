@@ -58,16 +58,23 @@ public class CircularView extends ViewGroup {
     // holds whether view is scrolling or not
     private boolean mIsScrolling = false;
 
+    // distance when touch gestures began to be recognized as MOVE not TOUCH gestures
     private int mTouchSlop;
 
+    // current scroll
     private int scroll;
 
+    // center position of view (same for X and Y position)
     private float center;
 
+    // inner and outer circle radius
     private float innerRadius;
     private float outerRadius;
+
+    // rotate speed multiplier
     private float rotateSpeed;
 
+    // gesture detection
     private CircularGestureListener mGestureListener;
     private GestureDetector gestureDetector;
 
@@ -101,6 +108,9 @@ public class CircularView extends ViewGroup {
         attrs.recycle();
     }
 
+    /**
+     * Initialize values
+     */
     private void init() {
         innerBounds = new Rect();
         outerBounds = new RectF();
@@ -120,19 +130,33 @@ public class CircularView extends ViewGroup {
         gestureDetector.setIsLongpressEnabled(false);
     }
 
+    /**
+     * @return default paint color for outer cycle
+     */
     public int getDefaultPaintColor(){
         return this.defaultColor;
     }
 
+    /**
+     * Set color of the paint that will be displayed if no items are inserted
+     * @param color to be set
+     */
     public void setDefaultPaintColor(int color){
         this.defaultColor = color;
         this.defaultPaint.setColor(defaultColor);
     }
 
+    /**
+     * @return width of outer cycle
+     */
     public int getOuterWidth(){
         return this.outerWidth;
     }
 
+    /**
+     * Set width of outer cycle
+     * @param width to be set
+     */
     public void setOuterWidth(int width){
         this.outerWidth = width;
         this.defaultPaint.setStrokeWidth(width);
@@ -375,9 +399,9 @@ public class CircularView extends ViewGroup {
     //////////////////////////////////////////////
     // LAYING DOWN THE VIEW                     //
     //////////////////////////////////////////////
-    private int getMax(int[] nums){
+    private int getMax(int[] numbers){
         int max = Integer.MIN_VALUE;
-        for (int i : nums){
+        for (int i : numbers){
             if (max < i) max = i;
         }
         return max;
@@ -483,7 +507,7 @@ public class CircularView extends ViewGroup {
     /**
      * Whole layout drawing is placed into {@link #drawChild(android.graphics.Canvas, android.view.View, long)}
      * because child layout is placed below outer cycle. This is needed because of suppressed possibilty
-     * to set clip bounds as antialiased
+     * to set clip bounds as antialias
      *
      * @param canvas to draw layout to
      */
@@ -534,8 +558,8 @@ public class CircularView extends ViewGroup {
     // STATE SAVING AND RESTORATION             //
     //////////////////////////////////////////////
     static class SavedState extends BaseSavedState {
-        int scroll;
-        HashMap items;
+        private int scroll;
+        private HashMap items;
 
 
         SavedState(Parcelable superState) {
@@ -607,7 +631,7 @@ public class CircularView extends ViewGroup {
             case MotionEvent.ACTION_DOWN:
                 mIsScrolling = false;
                 shouldScroll = false;
-                // intercept if ondown is outside radius
+                // intercept if onDown is outside inner radius
                 float distance = getDistanceFromCenter(ev.getX(), ev.getY());
                 if (distance > innerRadius && distance <= outerRadius) {
                     startX = ev.getX();
@@ -615,7 +639,7 @@ public class CircularView extends ViewGroup {
                     shouldScroll = true;
                     return true;
                 }
-                else if (distance > outerRadius) return true; // cannot scroll but child cannot proceed too
+                else if (distance > outerRadius) return true;
                 break;
             case MotionEvent.ACTION_MOVE: {
                 if (!shouldScroll) break;
@@ -635,7 +659,12 @@ public class CircularView extends ViewGroup {
         return false;
     }
 
-    private float getDistanceFromCenter(float x, float y) {
+    /**
+     * @param x scroll position
+     * @param y scroll position
+     * @return distance between center and specified position
+     */
+    protected float getDistanceFromCenter(float x, float y) {
         float xDist = x - center;
         float yDist = y - center;
         return (float) Math.sqrt(xDist * xDist + yDist * yDist);
@@ -653,20 +682,25 @@ public class CircularView extends ViewGroup {
      * Y scroll values.
      */
     private class CircularGestureListener extends GestureDetector.SimpleOnGestureListener {
+
+        // Quadrant definitions
         private final Pair TOP_LEFT_QUADRANT = new Pair(true, false);
         private final Pair TOP_RIGHT_QUADRANT = new Pair(true, true);
         private final Pair BOTTOM_RIGHT_QUADRANT = new Pair(false, true);
         private final Pair BOTTOM_LEFT_QUADRANT = new Pair(false, false);
 
+        // Private fields definition
         private Scroller mScroller;
         private boolean resetScroll = true;
-
         private Pair quadrant;
 
         public CircularGestureListener() {
             mScroller = new Scroller(getContext());
         }
 
+        /**
+         * Pair class representing Quadrant in which touch gestures may occur
+         */
         private class Pair {
             public static final int POSITIVE = -1;
             public static final int NEGATIVE = 1;
@@ -685,16 +719,20 @@ public class CircularView extends ViewGroup {
             mScroller.setFinalY(scroll);
         }
 
+        /**
+         * Resolve in quadrant placement of touch gesture.
+         * @param lastX X position
+         * @param lastY Y position
+         * @return touch gesture quadrant placement
+         */
         private Pair getQuadrant(float lastX, float lastY) {
-            float centerX = (outerBounds.right - outerBounds.left) / 2;
-            float centerY = (outerBounds.bottom - outerBounds.top) / 2;
-            if (lastX <= centerX && lastY <= centerY)
+            if (lastX <= center && lastY <= center)
                 return TOP_LEFT_QUADRANT;
-            if (lastX >= centerX && lastY <= centerY)
+            if (lastX >= center && lastY <= center)
                 return TOP_RIGHT_QUADRANT;
-            if (lastX >= centerX && lastY >= centerY)
+            if (lastX >= center && lastY >= center)
                 return BOTTOM_RIGHT_QUADRANT;
-            if (lastX <= centerX && lastY >= centerY)
+            if (lastX <= center && lastY >= center)
                 return BOTTOM_LEFT_QUADRANT;
             else
                 throw new UnknownError();
@@ -702,6 +740,7 @@ public class CircularView extends ViewGroup {
 
         @Override
         public boolean onDown(MotionEvent event) {
+            // force finish and reset scrolling
             resetScroll = true;
             mScroller.forceFinished(true);
             quadrant = getQuadrant(event.getX(), event.getY());
@@ -712,6 +751,7 @@ public class CircularView extends ViewGroup {
         @Override
         public boolean onFling(MotionEvent event1, MotionEvent event2,
                                float velocityX, float velocityY) {
+            // force finish scrolling and start flinging event
             mScroller.forceFinished(true);
             mScroller.fling(
                     mScroller.getFinalX(),
@@ -729,6 +769,8 @@ public class CircularView extends ViewGroup {
 
         @Override
         public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
+            // scroll event was always taking distanceX/Y as difference from last touch event position
+            // so after new onDown event distanceX and distanceY have to be reset to 0
             if (resetScroll) {
                 distanceX = 0;
                 distanceY = 0;
@@ -736,6 +778,7 @@ public class CircularView extends ViewGroup {
                 mScroller.setFinalY(mScroller.getCurrY());
                 resetScroll = false;
             }
+            // do not force finish animation (old scroll event disappears and scrolling will be buggy)
             mScroller.startScroll(
                     mScroller.getFinalX(),
                     mScroller.getFinalY(),
@@ -746,6 +789,13 @@ public class CircularView extends ViewGroup {
             return true;
         }
 
+        /**
+         * Based on current scroll calls {@link sk.kandrac.circularview.CircularView#setScroll(int)}.
+         * When scroll is not finished CircularView should call invalidate, otherwise some animations
+         * will not be displayed (most common example is flinging animation). Scroll is computed from
+         *
+         * @return true if invalidation is needed
+         */
         public boolean computeScroll() {
             boolean result = mScroller.computeScrollOffset();
             CircularView.this.setScroll((int)(rotateSpeed * (mScroller.getCurrX() + mScroller.getCurrY()) / 2));
@@ -756,12 +806,15 @@ public class CircularView extends ViewGroup {
     /**
      * Scroll circle to defined value.
      *
-     * @param scroll to scroll to
+     * @param scroll to be set
      */
     public void setScroll(int scroll){
         this.scroll = scroll;
     }
 
+    /**
+     * @return current scroll
+     */
     public int getScroll(){
         return scroll;
     }
