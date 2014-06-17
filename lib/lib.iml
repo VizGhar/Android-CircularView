@@ -11,7 +11,6 @@
         <option name="SELECTED_BUILD_VARIANT" value="release" />
         <option name="ASSEMBLE_TASK_NAME" value="assembleRelease" />
         <option name="COMPILE_JAVA_TASK_NAME" value="compileReleaseJava" />
-        <option name="SOURCE_GEN_TASK_NAME" value="generateReleaseSources" />
         <option name="ALLOW_USER_CONFIGURATION" value="false" />
         <option name="MANIFEST_FILE_RELATIVE_PATH" value="/src/main/AndroidManifest.xml" />
         <option name="RES_FOLDER_RELATIVE_PATH" value="/src/main/res" />
@@ -73,4 +72,3 @@
     <orderEntry type="library" exported="" name="appcompat-v7-19.1.0" level="project" />
   </component>
 </module>
-
