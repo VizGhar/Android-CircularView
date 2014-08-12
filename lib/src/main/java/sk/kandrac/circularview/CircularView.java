@@ -453,7 +453,7 @@ public class CircularView extends ViewGroup {
         params.width = (int) innerRadius * 2;
         params.height = (int) innerRadius * 2;
         child.setLayoutParams(params);
-        child.measure(parentWidthMeasureSpec, parentHeightMeasureSpec);
+        child.measure(MeasureSpec.makeMeasureSpec(parentWidthMeasureSpec,MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(parentHeightMeasureSpec,MeasureSpec.EXACTLY));
     }
 
     @Override

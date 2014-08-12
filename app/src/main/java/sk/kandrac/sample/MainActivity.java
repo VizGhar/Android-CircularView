@@ -27,10 +27,11 @@ public class MainActivity extends ActionBarActivity implements SeekBar.OnSeekBar
         circularView.addItem(negative, 2, getResources().getColor(R.color.green));
         circularView.addItem("unknown", 3, getResources().getColor(R.color.orange));
 
-        circularView.invalidate();
-
         seekBar = (SeekBar) findViewById(R.id.seekBar);
         seekBar.setOnSeekBarChangeListener(this);
+
+        circularView.setOuterWidth(seekBar.getProgress());
+        //circularView.invalidate();
     }
 
     public void addpos(View view) {
