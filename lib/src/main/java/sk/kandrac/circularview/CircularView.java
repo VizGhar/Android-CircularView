@@ -29,13 +29,15 @@ import java.util.Map;
  * This view is intended to display Circular view composed of 2 circles. Inner circle to show
  * standard content cropped into circle, and outer to display PieChart-like portions of added
  * items. (see addItem() methods and/or sample application).
- *
+ * <p/>
  * Created by VizGhar on 2.6.2014.
  */
 public class CircularView extends ViewGroup {
 
+    public static final int OUTER_UNDEFINED = -1;
+
     // list of items percentage of which will be displayed in outer circle
-    private HashMap<Object, ItemDescriptor> items = new HashMap<Object, ItemDescriptor>();
+    private HashMap<Object, ItemDescriptor> items = new HashMap<>();
 
     // width of outer circle
     private int outerWidth;
@@ -102,7 +104,7 @@ public class CircularView extends ViewGroup {
      * @param attrs the attributes to parse
      */
     private void parseAttributes(TypedArray attrs) {
-        outerWidth = (int) attrs.getDimension(R.styleable.CircularView_outer_width, 50);
+        outerWidth = (int) attrs.getDimension(R.styleable.CircularView_outer_width, OUTER_UNDEFINED);
         defaultColor = attrs.getColor(R.styleable.CircularView_default_color, Color.BLACK);
         rotateSpeed = attrs.getFloat(R.styleable.CircularView_rotate_speed, 1.0f);
         attrs.recycle();
@@ -133,15 +135,16 @@ public class CircularView extends ViewGroup {
     /**
      * @return default paint color for outer cycle
      */
-    public int getDefaultPaintColor(){
+    public int getDefaultPaintColor() {
         return this.defaultColor;
     }
 
     /**
      * Set color of the paint that will be displayed if no items are inserted
+     *
      * @param color to be set
      */
-    public void setDefaultPaintColor(int color){
+    public void setDefaultPaintColor(int color) {
         this.defaultColor = color;
         this.defaultPaint.setColor(defaultColor);
     }
@@ -149,35 +152,36 @@ public class CircularView extends ViewGroup {
     /**
      * @return width of outer cycle
      */
-    public int getOuterWidth(){
+    public int getOuterWidth() {
         return this.outerWidth;
     }
 
     /**
      * Set width of outer cycle
+     *
      * @param width to be set
      */
-    public void setOuterWidth(int width){
+    public void setOuterWidth(int width) {
         this.outerWidth = width;
         this.defaultPaint.setStrokeWidth(width);
-        for (Map.Entry<Object,ItemDescriptor> desc : items.entrySet()){
+        for (Map.Entry<Object, ItemDescriptor> desc : items.entrySet()) {
             desc.getValue().setPaintWidth(width);
         }
         requestLayout();
     }
 
-    public void setRotateSpeed(float speed){
+    public void setRotateSpeed(float speed) {
         this.rotateSpeed = speed;
     }
 
-    public float getRotateSpeed(){
+    public float getRotateSpeed() {
         return this.rotateSpeed;
     }
 
     //////////////////////////////////////////////
     // OUTER CIRCLE ITEM PROCESSING PART        //
     //////////////////////////////////////////////
-    public class ItemDescriptor implements Parcelable {
+    public static class ItemDescriptor implements Parcelable {
 
         private float score;
         private Paint paint;
@@ -188,13 +192,24 @@ public class CircularView extends ViewGroup {
 
             paint.setStyle(Paint.Style.STROKE);
             paint.setColor(color);
-            paint.setStrokeWidth(outerWidth);
             paint.setAntiAlias(true);
         }
 
         public ItemDescriptor(Parcel parcel) {
             this(parcel.readFloat(), parcel.readInt());
         }
+
+        public static final Creator<ItemDescriptor> CREATOR = new Creator<ItemDescriptor>() {
+            @Override
+            public ItemDescriptor createFromParcel(Parcel in) {
+                return new ItemDescriptor(in);
+            }
+
+            @Override
+            public ItemDescriptor[] newArray(int size) {
+                return new ItemDescriptor[size];
+            }
+        };
 
         public float getScore() {
             return score;
@@ -212,7 +227,7 @@ public class CircularView extends ViewGroup {
             this.paint = paint;
         }
 
-        public void setPaintWidth(int width){
+        public void setPaintWidth(int width) {
             this.paint.setStrokeWidth(width);
         }
 
@@ -399,9 +414,9 @@ public class CircularView extends ViewGroup {
     //////////////////////////////////////////////
     // LAYING DOWN THE VIEW                     //
     //////////////////////////////////////////////
-    private int getMax(int[] numbers){
+    private int getMax(int[] numbers) {
         int max = Integer.MIN_VALUE;
-        for (int i : numbers){
+        for (int i : numbers) {
             if (max < i) max = i;
         }
         return max;
@@ -439,6 +454,10 @@ public class CircularView extends ViewGroup {
                 measureChild(child, size - outerWidth, size - outerWidth);
         }
 
+        if (outerWidth == OUTER_UNDEFINED) {
+            setOuterWidth(size / 2 - padding);
+        }
+
         setMeasuredDimension(size, size);
     }
 
@@ -453,7 +472,7 @@ public class CircularView extends ViewGroup {
         params.width = (int) innerRadius * 2;
         params.height = (int) innerRadius * 2;
         child.setLayoutParams(params);
-        child.measure(MeasureSpec.makeMeasureSpec(parentWidthMeasureSpec,MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(parentHeightMeasureSpec,MeasureSpec.EXACTLY));
+        child.measure(parentWidthMeasureSpec, parentHeightMeasureSpec);
     }
 
     @Override
@@ -506,7 +525,7 @@ public class CircularView extends ViewGroup {
 
     /**
      * Whole layout drawing is placed into {@link #drawChild(android.graphics.Canvas, android.view.View, long)}
-     * because child layout is placed below outer cycle. This is needed because of suppressed possibilty
+     * because child layout is placed below outer cycle. This is needed because of suppressed possibility
      * to set clip bounds as antialias
      *
      * @param canvas to draw layout to
@@ -638,8 +657,7 @@ public class CircularView extends ViewGroup {
                     startY = ev.getY();
                     shouldScroll = true;
                     return true;
-                }
-                else if (distance > outerRadius) return true;
+                } else if (distance > outerRadius) return true;
                 break;
             case MotionEvent.ACTION_MOVE: {
                 if (!shouldScroll) break;
@@ -721,6 +739,7 @@ public class CircularView extends ViewGroup {
 
         /**
          * Resolve in quadrant placement of touch gesture.
+         *
          * @param lastX X position
          * @param lastY Y position
          * @return touch gesture quadrant placement
@@ -798,7 +817,7 @@ public class CircularView extends ViewGroup {
          */
         public boolean computeScroll() {
             boolean result = mScroller.computeScrollOffset();
-            CircularView.this.setScroll((int)(rotateSpeed * (mScroller.getCurrX() + mScroller.getCurrY()) / 2));
+            CircularView.this.setScroll((int) (rotateSpeed * (mScroller.getCurrX() + mScroller.getCurrY()) / 2));
             return result;
         }
     }
@@ -808,20 +827,20 @@ public class CircularView extends ViewGroup {
      *
      * @param scroll to be set
      */
-    public void setScroll(int scroll){
+    public void setScroll(int scroll) {
         this.scroll = scroll;
     }
 
     /**
      * @return current scroll
      */
-    public int getScroll(){
+    public int getScroll() {
         return scroll;
     }
 
     @Override
     public void scrollTo(int x, int y) {
-        throw new IllegalStateException("Method not supported, use scrollTo(int) instead");
+//        throw new IllegalStateException("Method not supported, use scrollTo(int) instead");
     }
 
     @Override
